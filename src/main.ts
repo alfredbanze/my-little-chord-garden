@@ -1,4 +1,6 @@
+import { invoke } from "@tauri-apps/api/core";
 import { keyboard } from "./chords";
+import { midiNotes } from "./midi-notes";
 
 const layouts = [
   {
@@ -20,12 +22,15 @@ const keyMap = new Map<
   {
     button: HTMLDivElement;
     label: HTMLDivElement;
+    press: () => Promise<void>;
+    release: () => Promise<void>;
   }
 >();
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
 
   document.title = "My Little Chord Garden";
+  await invoke("connect");
 
   const rows = document.querySelectorAll(".keys");
 
@@ -46,15 +51,19 @@ window.addEventListener("DOMContentLoaded", () => {
       const button = document.createElement("div");
       button.className = "key";
 
-      const press = () => {
-        button.classList.add("active");
-        label.textContent = name;
-      };
+      const press = async () => {
+  button.classList.add("active");
+  label.textContent = name;
 
-      const release = () => {
-        button.classList.remove("active");
-        label.textContent = "";
-      };
+ await invoke("play_notes", { notes: midiNotes[name] });
+};
+
+     const release = async () => {
+  button.classList.remove("active");
+  label.textContent = "";
+
+ await invoke("stop_notes", { notes: midiNotes[name] });
+};
 
       button.addEventListener("mousedown", press);
       button.addEventListener("mouseup", release);
@@ -65,7 +74,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
       keyMap.set(layout.keys[index], {
         button,
-        label
+        label,
+        press,
+        release
       });
 
       button.dataset.chord = name;
@@ -84,8 +95,7 @@ document.addEventListener("keydown", (e) => {
 
   if (!item) return;
 
-  item.button.classList.add("active");
-  item.label.textContent = item.button.dataset.chord ?? "";
+  void item.press();
 
 });
 
@@ -95,7 +105,6 @@ document.addEventListener("keyup", (e) => {
 
   if (!item) return;
 
-  item.button.classList.remove("active");
-  item.label.textContent = "";
+  void item.release();
 
 });
